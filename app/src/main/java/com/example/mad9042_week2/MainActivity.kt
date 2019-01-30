@@ -28,6 +28,15 @@ class MainActivity : AppCompatActivity() {
 
     var maxLight = 0.0f
 
+    var firstXValue = 0.0f
+
+    var isFirstX = true
+    var ambient = 0.0f
+
+    var changingAngle = 0.0f
+
+    lateinit var vibrateMotor : Vibrator
+
     var flashLightStatus = false
     var deviceHasCameraFlash: Boolean = false
 
@@ -85,7 +94,7 @@ class MainActivity : AppCompatActivity() {
 
         //Vibration example. Look at powerpoint slides on vibration
         val vibrateButton = findViewById<Button>(R.id.vibrate_button)
-        val vibrateMotor = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+         vibrateMotor = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
 
         vibrateButton.setOnClickListener{
 
@@ -125,14 +134,38 @@ class MainActivity : AppCompatActivity() {
     }
 
     inner class OrientationListener : SensorEventListener {
+
+
         override fun onSensorChanged(event: SensorEvent) {
             val values = event.values
+
+            if(isFirstX == true){
+               firstXValue = values[0]
+                isFirstX = false
+            }
 
             val x = values[0]
             val y = values[1]
             val z = values[2]
 
-            xEditText.setText("X: $x")
+changingAngle = Math.abs(firstXValue - x)
+
+            if(changingAngle > 45){
+
+                val pattern = longArrayOf(500, 500, 500, 500)
+                val amplitudes = intArrayOf(0, 255, 0, 128)
+                // api 26 or newer: vibrateMotor.vibrate(VibrationEffect.createWaveform(pattern, amplitudes, -1) )
+
+                vibrateMotor.vibrate(pattern, -1);
+            }
+
+            if (y > 0 && y <= 80 && ambient < 100){
+                camManager.setTorchMode(cameraId, true)
+            }else{
+                camManager.setTorchMode(cameraId, false)
+            }
+
+            xEditText.setText("X: $x, AmbientLight: $ambient")
             yEditText.setText("Y: $y")
             zEditText.setText("Z: $z")
         }
@@ -146,17 +179,23 @@ class MainActivity : AppCompatActivity() {
 
     inner class AmbientLightListener : SensorEventListener
     {
+
         override fun onSensorChanged(event: SensorEvent) {
             val values = event.values
             Log.i("Light:", "Lux:"+ values[0])
+            ambient = values[0]
             maxLight = Math.max(maxLight, values[0])
             val intensity = (values[0]*255.0/maxLight).toInt()
+
+
            //Api 26 or newer: screenBackground.setBackgroundColor(Color.rgb( 1.0f, values[0]/maxLight, values[0]/maxLight))
 
             //API 25 or lower:
             val color =  Color.argb(255,  255, intensity, intensity)
             screenBackground.setBackgroundColor(color)
         }
+
+
 
         override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {
             // Do something here if sensor accuracy changes.
